@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-import subprocess
 from datetime import datetime
 
 from PySide6.QtCore import QThread, QTimer, Qt, Signal
@@ -36,28 +34,33 @@ class Worker(QThread):
     status = Signal(str)
     finished = Signal(str)
 
-    def __init__(self, agent: LocalAgent, goal: str):
+    def __init__(self, goal: str):
         super().__init__()
-        self.agent, self.goal = agent, goal
+        self.goal = goal
+        self.agent = LocalAgent(self.status.emit)
 
     def run(self):
         try:
-            result = self.agent.run(self.goal)
-            self.finished.emit(result)
+            self.finished.emit(self.agent.run(self.goal))
         except Exception as exc:
             self.finished.emit(f"Failed: {exc}")
 
+    def stop(self):
+        self.agent.stop()
+
 
 class JarvisWindow(QMainWindow):
+    status = Signal(str)
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("J.A.R.V.I.S — Autonomous PC Agent")
         self.resize(1440, 900)
         self.setMinimumSize(1180, 760)
         self.setStyleSheet(STYLE)
-        self.agent = LocalAgent(self.log_event)
         self.worker = None
         self._build()
+        self.status.connect(self.log_event)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.refresh_screen)
         self.timer.start(650)
@@ -67,22 +70,19 @@ class JarvisWindow(QMainWindow):
     def _label(self, text, obj="muted"):
         w = QLabel(text); w.setObjectName(obj); return w
 
-    def _card(self, title, value, dot=True):
+    def _card(self, title, value):
         c = QFrame(); c.setObjectName("card"); l = QVBoxLayout(c); l.setContentsMargins(15,12,15,12)
-        l.addWidget(self._label(title.upper(), "section")); row=QHBoxLayout();
-        if dot:
-            d=self._label("●", "value"); d.setStyleSheet("color:#38d996; font-size:12px;"); row.addWidget(d)
-        v=self._label(value, "value"); row.addWidget(v); row.addStretch(); l.addLayout(row); return c
+        l.addWidget(self._label(title.upper(), "section")); row = QHBoxLayout()
+        d = self._label("●", "value"); d.setStyleSheet("color:#38d996; font-size:12px;"); row.addWidget(d)
+        row.addWidget(self._label(value, "value")); row.addStretch(); l.addLayout(row); return c
 
     def _build(self):
         root=QWidget(); self.setCentralWidget(root); outer=QHBoxLayout(root); outer.setContentsMargins(22,20,22,20); outer.setSpacing(18)
-        # sidebar
         side=QFrame(); side.setObjectName("panel"); side.setFixedWidth(260); sl=QVBoxLayout(side); sl.setContentsMargins(22,24,22,22); sl.setSpacing(14)
         sl.addWidget(self._label("J.A.R.V.I.S", "brand")); sl.addWidget(self._label("AUTONOMOUS PC AGENT", "muted")); sl.addSpacing(22)
         for text in ("◉  Command Center","◌  Tasks","◌  Activity","◌  Diagnostics"):
             b=QPushButton(text); b.setObjectName("chip"); b.setCursor(Qt.PointingHandCursor); sl.addWidget(b)
         sl.addStretch(); sl.addWidget(self._label("LOCAL MODE", "section")); sl.addWidget(self._label("NO API KEY REQUIRED", "value")); sl.addWidget(self._label("Ollama vision • Windows executor", "muted")); outer.addWidget(side)
-        # main
         main=QVBoxLayout(); main.setSpacing(16); outer.addLayout(main,1)
         head=QHBoxLayout(); title=QVBoxLayout(); title.addWidget(self._label("COMMAND CENTER","section")); title.addWidget(self._label("Ready when you are.","brand")); head.addLayout(title); head.addStretch(); self.clock=self._label("", "muted"); head.addWidget(self.clock,0,Qt.AlignTop); main.addLayout(head)
         body=QHBoxLayout(); body.setSpacing(16); main.addLayout(body,1)
@@ -108,16 +108,18 @@ class JarvisWindow(QMainWindow):
         goal=self.input.text().strip()
         if not goal or (self.worker and self.worker.isRunning()): return
         self.input.clear(); self.task_label.setText(goal); self.progress.setRange(0,0); self.log_event(f"Planning • {goal}")
-        self.worker=Worker(self.agent,goal); self.worker.finished.connect(self.done); self.worker.start()
+        self.worker=Worker(goal); self.worker.status.connect(self.log_event); self.worker.finished.connect(self.done); self.worker.finished.connect(self.worker.deleteLater); self.worker.start()
 
     def done(self,result):
         self.progress.setRange(0,100); self.progress.setValue(100); self.log_event(result); self.task_label.setText("COMPLETE • "+result[:110]); self.worker=None
 
     def stop(self):
-        self.agent.stop(); self.log_event("Emergency stop • input and mouse released"); self.progress.setRange(0,100); self.progress.setValue(0); self.task_label.setText("STOPPED")
+        if self.worker and self.worker.isRunning(): self.worker.stop()
+        self.log_event("Emergency stop • input and mouse released"); self.progress.setRange(0,100); self.progress.setValue(0); self.task_label.setText("STOPPED")
 
     def closeEvent(self,event):
-        self.agent.stop(); event.accept()
+        if self.worker and self.worker.isRunning(): self.worker.stop(); self.worker.wait(1500)
+        event.accept()
 
 
 def launch():
