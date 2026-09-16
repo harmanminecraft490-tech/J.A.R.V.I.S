@@ -1,25 +1,32 @@
-# J.A.R.V.I.S — Autonomous AI PC Agent
+# J.A.R.V.I.S — Google AI-powered Windows Computer Agent
 
-A modular Windows desktop agent built around the loop:
+JARVIS is a Windows desktop agent designed around a computer-use loop: **listen → understand → observe → act → verify → recover**.
 
-**LISTEN → UNDERSTAND → PLAN → OBSERVE → ACT → VERIFY → RECOVER → CONTINUE → COMPLETE**
+## First launch
 
-## Architecture
+The desktop application will ask for the user's Google AI / Gemini API key on first launch. The key is stored locally through the Windows credential store when available and is never committed to Git.
 
-- `core/` — agent orchestration, planning, task state, memory
-- `vision/` — screen capture and observation abstractions
-- `computer/` — mouse, keyboard, windows, processes
-- `tools/` — filesystem, terminal, browser, system capabilities
-- `voice/` — replaceable voice provider adapters
-- `ui/` — dashboard
-- `config/` — environment and runtime configuration
-- `tests/` — automated validation
-- `docs/` — architecture and engineering notes
+Google AI is the primary brain and voice provider for the initial implementation. The provider is isolated behind adapters so the computer-use runtime can evolve independently.
 
-## Safety
+## Computer use
 
-Computer control is mediated by a risk/permission layer. Emergency stop must halt queued non-critical computer-control actions. Credentials and secrets are never committed.
+JARVIS combines:
+
+- screenshot and focused-region observation
+- structured computer actions
+- deterministic Windows mouse/keyboard execution
+- window/process awareness
+- filesystem and terminal tools
+- action verification and recovery
+- task pause/resume/cancel and emergency stop
+- concise activity status instead of exposing private chain-of-thought
+
+The model chooses **what** to do; the local executor determines **how** to safely perform the action.
+
+## Security
+
+High-impact actions require confirmation according to the configured policy. Secrets, passwords, API keys, and tokens must not be written to logs or source control.
 
 ## Development
 
-The first implementation milestone focuses on a dependable Windows control/observation core, structured actions, task state, logging, configuration, and tests before adding higher-level autonomy.
+The repository is being implemented incrementally. See `docs/architecture.md` for the current design and `docs/roadmap.md` for implementation stages.
