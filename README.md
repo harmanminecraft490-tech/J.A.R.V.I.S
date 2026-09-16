@@ -1,32 +1,45 @@
-# J.A.R.V.I.S — Google AI-powered Windows Computer Agent
+# J.A.R.V.I.S — Google AI Computer-Use Agent
 
-JARVIS is a Windows desktop agent designed around a computer-use loop: **listen → understand → observe → act → verify → recover**.
+JARVIS is a Windows desktop AI agent built around a real computer-use loop: **listen → understand → observe → act → verify → recover**.
 
 ## First launch
 
-The desktop application will ask for the user's Google AI / Gemini API key on first launch. The key is stored locally through the Windows credential store when available and is never committed to Git.
+When JARVIS opens for the first time, it asks for the user's **Google AI Studio / Gemini API key**. The credential is stored locally through the Windows credential manager and is never committed to Git.
 
-Google AI is the primary brain and voice provider for the initial implementation. The provider is isolated behind adapters so the computer-use runtime can evolve independently.
+Google Gemini is the default brain, and Gemini Live is the voice layer. The provider boundary keeps those services replaceable without rewriting the Windows executor.
 
 ## Computer use
 
-JARVIS combines:
+The current implementation uses Google's Computer Use interface with the **desktop** environment. JARVIS:
 
-- screenshot and focused-region observation
-- structured computer actions
-- deterministic Windows mouse/keyboard execution
-- window/process awareness
-- filesystem and terminal tools
-- action verification and recovery
-- task pause/resume/cancel and emergency stop
-- concise activity status instead of exposing private chain-of-thought
+1. captures the real Windows desktop;
+2. sends the goal + screenshot to the model;
+3. receives structured mouse/keyboard desktop actions;
+4. converts normalized coordinates to actual screen pixels;
+5. executes the action locally;
+6. captures the new screen;
+7. sends the action result + screenshot back to the same interaction;
+8. repeats until completion or a safety/user blocker.
 
-The model chooses **what** to do; the local executor determines **how** to safely perform the action.
+Prompt-injection detection is enabled for screenshot-driven computer use.
+
+## Run
+
+```powershell
+python -m pip install -r requirements.txt
+python main.py
+```
+
+## Configuration
+
+- `JARVIS_MODEL` — Computer Use model, default `gemini-3.8-flash`
+- `JARVIS_LIVE_MODEL` — Live voice model, default `gemini-3.8-live`
+- `JARVIS_MAX_STEPS` — maximum computer-use loop iterations
+
+## Important distinction
+
+A Google AI Studio key authenticates Google's Gemini services. If your `aq.xxxxxxxxx` credential belongs to a separate AI Hub/proxy that exposes GPT-6 Astra, that endpoint should be added as a separate provider adapter. The computer-use executor is intentionally provider-independent.
 
 ## Security
 
-High-impact actions require confirmation according to the configured policy. Secrets, passwords, API keys, and tokens must not be written to logs or source control.
-
-## Development
-
-The repository is being implemented incrementally. See `docs/architecture.md` for the current design and `docs/roadmap.md` for implementation stages.
+The local executor does not bypass Windows security. High-impact operations should require confirmation, and secrets must never be logged or committed.
